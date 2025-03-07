@@ -1,6 +1,10 @@
 pipeline {
     agent any
     
+    triggers {
+        githubPush()
+    }
+    
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
@@ -10,6 +14,18 @@ pipeline {
     }
     
     stages {
+        stage('Check Branch') {
+            steps {
+                script {
+                    def branch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    echo "Current branch: ${branch}"
+                    if (!branch.contains('master')) {
+                        error("Not on master branch. Stopping deployment.")
+                    }
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
