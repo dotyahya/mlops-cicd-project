@@ -61,8 +61,6 @@ pipeline {
             steps {
                 script {
                     bat """
-                        echo DOCKER_IMAGE_NAME: ${env.DOCKER_IMAGE_NAME}
-                        echo DOCKER_IMAGE_TAG: ${env.DOCKER_IMAGE_TAG}
                         docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG} .
                     """
                 }
@@ -78,6 +76,7 @@ pipeline {
                             '
                         bat """
                             docker push ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG}
+                            docker push ${env.DOCKER_IMAGE_NAME}:latest
                             docker rmi ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG}
                             docker logout
                         """
