@@ -6,6 +6,7 @@ pipeline {
         DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
         PYTHONPATH = "${WORKSPACE}"
+        PYTHONUNBUFFERED = "1"
     }
     
     stages {
@@ -25,7 +26,9 @@ pipeline {
             steps {
                 bat 'echo Current directory: %CD%'
                 bat 'echo Python path: %PYTHONPATH%'
-                bat 'python -m pytest tests/ -v --junitxml=test-results.xml'
+                bat 'echo Listing workspace contents:'
+                bat 'dir /s /b'
+                bat 'python -m pytest tests/test.py -v --junitxml=test-results.xml'
             }
             post {
                 always {
