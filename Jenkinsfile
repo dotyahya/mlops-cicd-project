@@ -3,7 +3,7 @@ pipeline {
     
     triggers {
         pipelineTriggers([
-            [$class: 'GitHubPRTrigger', orgWhitelist: ['your-github-org']]
+            [$class: 'GitHubPRTrigger', triggerPhrase: '.*', onlyTriggerPhrase: false, prTargetBranches: ['master']]
         ])
     }
     
@@ -19,10 +19,8 @@ pipeline {
         stage('Check PR Branch') {
             steps {
                 script {
-                    def branch = env.CHANGE_TARGET
-                    echo "PR is targeting: ${branch}"
-                    if (branch != 'master') {
-                        error("PR is not targeting master. Stopping deployment.")
+                    if (env.CHANGE_TARGET != 'master') {
+                        error("PR is not targeting master. Stopping pipeline.")
                     }
                 }
             }
