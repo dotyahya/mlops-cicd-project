@@ -16,9 +16,30 @@ pipeline {
             }
         }
         
+        stage('Clean Python Environment') {
+            steps {
+                bat 'python -m pip cache purge'
+                bat 'python -m pip uninstall -y scikit-learn numpy scipy joblib'
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
-                bat 'python -m pip install -r requirements.txt'
+                script {
+                    try {
+                        bat 'python -m pip install --upgrade pip --user'
+                        bat 'python -m pip install --no-cache-dir -r requirements.txt --user'
+                    } catch (Exception e) {
+                        echo "First attempt failed, trying alternative installation..."
+                        bat 'python -m pip install --no-cache-dir --ignore-installed -r requirements.txt --user'
+                    }
+                }
+            }
+        }
+        
+        stage('Verify Installation') {
+            steps {
+                bat 'python -c "import sklearn; import numpy; import scipy; import joblib; print(\'All packages imported successfully\')"'
             }
         }
         
