@@ -20,17 +20,18 @@ pipeline {
         }
 
         stage('Check Branch') {
-            steps {
-                script {
-                    def branch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
-                    echo "Current branch: ${branch}"
-                    
-                    if (branch != 'master') {
-                        error("Not on master branch. Stopping deployment.")
-                    }
+        steps {
+            script {
+                def branch = env.GIT_BRANCH ?: 'unknown'
+                echo "Current branch: ${branch}"
+                
+                if (branch != 'origin/master' && branch != 'master') {
+                    currentBuild.result = 'ABORTED'
+                    error("Not on master branch. Stopping deployment.")
                 }
             }
         }
+    }
 
         stage('Clean Python Environment') {
             steps {
