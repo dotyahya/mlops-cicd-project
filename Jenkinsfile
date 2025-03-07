@@ -61,7 +61,7 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        docker build -t docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG} .
+                        docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG} .
                     '''
                 }
             }
