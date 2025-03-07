@@ -3,7 +3,9 @@ name: Code Quality Check
 on:
   pull_request:
     branches: 
-      - dev 
+      - dev
+      - test
+      - master
 
 jobs:
   flake8:
