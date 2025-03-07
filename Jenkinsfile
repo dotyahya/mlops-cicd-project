@@ -22,7 +22,7 @@ pipeline {
         stage('Check Branch') {
             steps {
                 script {
-                    def branch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    def branch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     echo "Current branch: ${branch}"
                     
                     if (branch != 'master') {
@@ -34,7 +34,7 @@ pipeline {
 
         stage('Clean Python Environment') {
             steps {
-                sh '''
+                bat '''
                     set -e
                     python3 -m pip cache purge || true
                     python3 -m pip uninstall -y scikit-learn numpy scipy joblib || true
@@ -46,14 +46,14 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh '''
+                        bat '''
                             set -e
                             python3 -m pip install --upgrade pip
                             python3 -m pip install --no-cache-dir -r requirements.txt
                         '''
                     } catch (Exception e) {
                         echo "First attempt failed, retrying..."
-                        sh 'python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt'
+                        bat 'python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt'
                     }
                 }
             }
@@ -62,7 +62,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh '''
+                    bat '''
                         set -e
                         docker build -t $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG .
                         docker tag $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG $DOCKER_IMAGE_NAME:latest
@@ -75,7 +75,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
-                        sh '''
+                        bat '''
                             set -e
                             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                             docker push $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
