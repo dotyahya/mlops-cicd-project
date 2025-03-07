@@ -1,6 +1,12 @@
 pipeline {
     agent any
-
+    
+    triggers {
+        pipelineTriggers([
+            [$class: 'GitHubPRTrigger', orgWhitelist: ['your-github-org']]
+        ])
+    }
+    
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
@@ -8,13 +14,15 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}"
         PYTHONUNBUFFERED = "1"
     }
-
+    
     stages {
-        stage('Check PR Target Branch') {
+        stage('Check PR Branch') {
             steps {
                 script {
-                    if (env.CHANGE_TARGET != 'master') {
-                        error("This pipeline only runs for pull requests targeting the master branch.")
+                    def branch = env.CHANGE_TARGET
+                    echo "PR is targeting: ${branch}"
+                    if (branch != 'master') {
+                        error("PR is not targeting master. Stopping deployment.")
                     }
                 }
             }
@@ -25,14 +33,14 @@ pipeline {
                 checkout scm
             }
         }
-
+        
         stage('Clean Python Environment') {
             steps {
                 bat 'python -m pip cache purge'
                 bat 'python -m pip uninstall -y scikit-learn numpy scipy joblib'
             }
         }
-
+        
         stage('Install Dependencies') {
             steps {
                 script {
@@ -40,21 +48,25 @@ pipeline {
                         bat 'python -m pip install --upgrade pip --user'
                         bat 'python -m pip install --no-cache-dir -r requirements.txt --user'
                     } catch (Exception e) {
-                        echo "First attempt failed, trying alternative installation..."
+                        echo "First attempt failed, retrying..."
                         bat 'python -m pip install --no-cache-dir --ignore-installed -r requirements.txt --user'
                     }
                 }
             }
         }
-
+        
         stage('Verify Installation') {
             steps {
                 bat 'python -c "import sklearn; import numpy; import scipy; import joblib; print(\'All packages imported successfully\')"'
             }
         }
-
+        
         stage('Run Tests') {
             steps {
+                bat 'echo Current directory: %CD%'
+                bat 'echo Python path: %PYTHONPATH%'
+                bat 'echo Listing workspace contents:'
+                bat 'dir /s /b'
                 bat 'python -m pytest tests/test.py -v --junitxml=test-results.xml'
             }
             post {
@@ -63,7 +75,7 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Build Docker Image') {
             steps {
                 script {
@@ -72,7 +84,7 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Push to Docker Hub') {
             steps {
                 script {
@@ -85,7 +97,7 @@ pipeline {
             }
         }
     }
-
+    
     post {
         always {
             cleanWs()
@@ -95,7 +107,7 @@ pipeline {
                 try {
                     emailext (
                         subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                        body: "The pull request from `test` to `master` has been successfully merged and deployed.",
+                        body: "Your pipeline has completed successfully.",
                         to: 'mohammadosman31@gmail.com'
                     )
                 } catch (Exception e) {
@@ -108,7 +120,7 @@ pipeline {
                 try {
                     emailext (
                         subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                        body: "The deployment failed. Check Jenkins logs for details.",
+                        body: "Your pipeline has failed. Please check the Jenkins console for details.",
                         to: 'mohammadosman31@gmail.com'
                     )
                 } catch (Exception e) {
