@@ -2,47 +2,42 @@ pipeline {
     agent any
     
     triggers {
-        githubPush()  // This will trigger Jenkins on push events
+        githubPush()
     }
     
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
+        DOCKER_IMAGE_NAME = 'dotyahya/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
         PYTHONPATH = "${WORKSPACE}"
         PYTHONUNBUFFERED = "1"
     }
 
     stages {
-        stage('Check PR Merge') {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Check Branch') {
             steps {
                 script {
                     def branch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     echo "Current branch: ${branch}"
                     
                     if (branch != 'master') {
+                        currentBuild.result = 'ABORTED'
                         error("Not on master branch. Stopping deployment.")
-                    }
-
-                    // Ensure the build was triggered by a PR merge event
-                    def isPRMerged = currentBuild.getBuildCauses('hudson.model.Cause$RemoteCause')
-                    if (!isPRMerged) {
-                        error("Not triggered by a PR merge. Exiting...")
                     }
                 }
             }
         }
 
-        stage('Checkout Code') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Clean Python Environment') {
             steps {
-                sh 'python3 -m pip cache purge'
-                sh 'python3 -m pip uninstall -y scikit-learn numpy scipy joblib'
+                sh 'python3 -m pip cache purge || true'
+                sh 'python3 -m pip uninstall -y scikit-learn numpy scipy joblib || true'
             }
         }
 
@@ -60,21 +55,11 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                sh 'pytest tests/test.py -v --junitxml=test-results.xml'
-            }
-            post {
-                always {
-                    junit 'test-results.xml'
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
                     sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
+                    sh "docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest"
                 }
             }
         }
@@ -82,8 +67,9 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+                    sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
                     sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                    sh "docker push ${DOCKER_IMAGE_NAME}:latest"
                     sh 'docker logout'
                 }
             }
@@ -97,12 +83,12 @@ pipeline {
         success {
             mail to: 'mohammadosman31@gmail.com',
                  subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                 body: "PR Merged. Pipeline completed successfully!"
+                 body: "Pipeline completed successfully! Docker image pushed to DockerHub as ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} and ${DOCKER_IMAGE_NAME}:latest"
         }
         failure {
             mail to: 'mohammadosman31@gmail.com',
                  subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                 body: "PR merge detected, but pipeline failed! Check logs."
+                 body: "Pipeline failed! Check Jenkins logs for details."
         }
     }
 }

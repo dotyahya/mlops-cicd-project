@@ -3,8 +3,6 @@ from sklearn.naive_bayes import MultinomialNB
 import joblib
 import os
 
-# last test
-
 class SentimentModel:
     def __init__(self):
         self.vectorizer = TfidfVectorizer()
