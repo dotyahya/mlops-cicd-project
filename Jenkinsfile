@@ -2,9 +2,7 @@ pipeline {
     agent any
     
     triggers {
-        pipelineTriggers([
-            [$class: 'GitHubPRTrigger', triggerPhrase: '.*', onlyTriggerPhrase: false, prTargetBranches: ['master']]
-        ])
+        githubPush()  // This will trigger Jenkins on push events
     }
     
     environment {
@@ -14,117 +12,97 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}"
         PYTHONUNBUFFERED = "1"
     }
-    
+
     stages {
-        stage('Check PR Branch') {
+        stage('Check PR Merge') {
             steps {
                 script {
-                    if (env.CHANGE_TARGET != 'master') {
-                        error("PR is not targeting master. Stopping pipeline.")
+                    def branch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    echo "Current branch: ${branch}"
+                    
+                    if (branch != 'master') {
+                        error("Not on master branch. Stopping deployment.")
+                    }
+
+                    // Ensure the build was triggered by a PR merge event
+                    def isPRMerged = currentBuild.getBuildCauses('hudson.model.Cause$RemoteCause')
+                    if (!isPRMerged) {
+                        error("Not triggered by a PR merge. Exiting...")
                     }
                 }
             }
         }
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
-        
+
         stage('Clean Python Environment') {
             steps {
-                bat 'python -m pip cache purge'
-                bat 'python -m pip uninstall -y scikit-learn numpy scipy joblib'
+                sh 'python3 -m pip cache purge'
+                sh 'python3 -m pip uninstall -y scikit-learn numpy scipy joblib'
             }
         }
-        
+
         stage('Install Dependencies') {
             steps {
                 script {
                     try {
-                        bat 'python -m pip install --upgrade pip --user'
-                        bat 'python -m pip install --no-cache-dir -r requirements.txt --user'
+                        sh 'python3 -m pip install --upgrade pip'
+                        sh 'python3 -m pip install --no-cache-dir -r requirements.txt'
                     } catch (Exception e) {
                         echo "First attempt failed, retrying..."
-                        bat 'python -m pip install --no-cache-dir --ignore-installed -r requirements.txt --user'
+                        sh 'python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt'
                     }
                 }
             }
         }
-        
-        stage('Verify Installation') {
-            steps {
-                bat 'python -c "import sklearn; import numpy; import scipy; import joblib; print(\'All packages imported successfully\')"'
-            }
-        }
-        
+
         stage('Run Tests') {
             steps {
-                bat 'echo Current directory: %CD%'
-                bat 'echo Python path: %PYTHONPATH%'
-                bat 'echo Listing workspace contents:'
-                bat 'dir /s /b'
-                bat 'python -m pytest tests/test.py -v --junitxml=test-results.xml'
+                sh 'pytest tests/test.py -v --junitxml=test-results.xml'
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                    junit 'test-results.xml'
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    bat 'docker --version'
-                    bat "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
+                    sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
         }
-        
+
         stage('Push to Docker Hub') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        bat 'docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%'
-                        bat "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                        bat "docker logout"
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+                    sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                    sh 'docker logout'
                 }
             }
         }
     }
-    
+
     post {
         always {
             cleanWs()
         }
         success {
-            script {
-                try {
-                    emailext (
-                        subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                        body: "Your pipeline has completed successfully.",
-                        to: 'mohammadosman31@gmail.com'
-                    )
-                } catch (Exception e) {
-                    echo "Failed to send email: ${e.getMessage()}"
-                }
-            }
+            mail to: 'mohammadosman31@gmail.com',
+                 subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
+                 body: "PR Merged. Pipeline completed successfully!"
         }
         failure {
-            script {
-                try {
-                    emailext (
-                        subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                        body: "Your pipeline has failed. Please check the Jenkins console for details.",
-                        to: 'mohammadosman31@gmail.com'
-                    )
-                } catch (Exception e) {
-                    echo "Failed to send email: ${e.getMessage()}"
-                }
-            }
+            mail to: 'mohammadosman31@gmail.com',
+                 subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
+                 body: "PR merge detected, but pipeline failed! Check logs."
         }
     }
 }
