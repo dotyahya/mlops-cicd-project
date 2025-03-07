@@ -2,7 +2,8 @@ name: Feature Testing
 
 on:
   pull_request:
-    branches: [ test ]
+    branches:
+      - test
 
 jobs:
   test:
@@ -19,4 +20,4 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Test with pytest
         run: |
-          pytest
+          pytest -vs
