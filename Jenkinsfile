@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_IMAGE_NAME = 'your-dockerhub-username/mlops-ml-project'
+        DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
     }
     
@@ -16,20 +16,20 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                sh 'pip install -r requirements.txt'
+                bat 'python -m pip install -r requirements.txt'
             }
         }
         
         stage('Run Tests') {
             steps {
-                sh 'python -m pytest tests/'
+                bat 'python -m pytest tests/'
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}")
+                    bat "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
         }
@@ -37,8 +37,9 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        docker.image("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}").push()
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        bat "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
+                        bat "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
                     }
                 }
             }
@@ -50,14 +51,14 @@ pipeline {
             emailext (
                 subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
                 body: "Your pipeline has completed successfully.",
-                to: 'admin@yourdomain.com'
+                to: 'mohammadosman31@gmail.com'
             )
         }
         failure {
             emailext (
                 subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
                 body: "Your pipeline has failed. Please check the Jenkins console for details.",
-                to: 'admin@yourdomain.com'
+                to: 'mohammadosman31@gmail.com'
             )
         }
     }
