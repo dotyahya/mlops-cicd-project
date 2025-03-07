@@ -1,10 +1,6 @@
 pipeline {
     agent any
-    
-    triggers {
-        githubPush()
-    }
-    
+
     environment {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
@@ -12,15 +8,13 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}"
         PYTHONUNBUFFERED = "1"
     }
-    
+
     stages {
-        stage('Check Branch') {
+        stage('Check PR Target Branch') {
             steps {
                 script {
-                    def branch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
-                    echo "Current branch: ${branch}"
-                    if (!branch.contains('master')) {
-                        error("Not on master branch. Stopping deployment.")
+                    if (env.CHANGE_TARGET != 'master') {
+                        error("This pipeline only runs for pull requests targeting the master branch.")
                     }
                 }
             }
@@ -31,14 +25,14 @@ pipeline {
                 checkout scm
             }
         }
-        
+
         stage('Clean Python Environment') {
             steps {
                 bat 'python -m pip cache purge'
                 bat 'python -m pip uninstall -y scikit-learn numpy scipy joblib'
             }
         }
-        
+
         stage('Install Dependencies') {
             steps {
                 script {
@@ -52,19 +46,15 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Verify Installation') {
             steps {
                 bat 'python -c "import sklearn; import numpy; import scipy; import joblib; print(\'All packages imported successfully\')"'
             }
         }
-        
+
         stage('Run Tests') {
             steps {
-                bat 'echo Current directory: %CD%'
-                bat 'echo Python path: %PYTHONPATH%'
-                bat 'echo Listing workspace contents:'
-                bat 'dir /s /b'
                 bat 'python -m pytest tests/test.py -v --junitxml=test-results.xml'
             }
             post {
@@ -73,7 +63,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -82,7 +72,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Push to Docker Hub') {
             steps {
                 script {
@@ -95,7 +85,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             cleanWs()
@@ -105,7 +95,7 @@ pipeline {
                 try {
                     emailext (
                         subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                        body: "Your pipeline has completed successfully.",
+                        body: "The pull request from `test` to `master` has been successfully merged and deployed.",
                         to: 'mohammadosman31@gmail.com'
                     )
                 } catch (Exception e) {
@@ -118,7 +108,7 @@ pipeline {
                 try {
                     emailext (
                         subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                        body: "Your pipeline has failed. Please check the Jenkins console for details.",
+                        body: "The deployment failed. Check Jenkins logs for details.",
                         to: 'mohammadosman31@gmail.com'
                     )
                 } catch (Exception e) {
