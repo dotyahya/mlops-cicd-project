@@ -22,13 +22,19 @@ pipeline {
         
         stage('Run Tests') {
             steps {
-                bat 'python -m pytest tests/'
+                bat 'python -m pytest tests/ --junitxml=test-results.xml'
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                }
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 script {
+                    bat 'docker --version'
                     bat "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ."
                 }
             }
@@ -38,8 +44,9 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        bat "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
+                        bat 'docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%'
                         bat "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                        bat "docker logout"
                     }
                 }
             }
@@ -47,19 +54,34 @@ pipeline {
     }
     
     post {
+        always {
+            cleanWs()
+        }
         success {
-            emailext (
-                subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
-                body: "Your pipeline has completed successfully.",
-                to: 'mohammadosman31@gmail.com'
-            )
+            script {
+                try {
+                    emailext (
+                        subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
+                        body: "Your pipeline has completed successfully.",
+                        to: 'mohammadosman31@gmail.com'
+                    )
+                } catch (Exception e) {
+                    echo "Failed to send email: ${e.getMessage()}"
+                }
+            }
         }
         failure {
-            emailext (
-                subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                body: "Your pipeline has failed. Please check the Jenkins console for details.",
-                to: 'mohammadosman31@gmail.com'
-            )
+            script {
+                try {
+                    emailext (
+                        subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
+                        body: "Your pipeline has failed. Please check the Jenkins console for details.",
+                        to: 'mohammadosman31@gmail.com'
+                    )
+                } catch (Exception e) {
+                    echo "Failed to send email: ${e.getMessage()}"
+                }
+            }
         }
     }
 }

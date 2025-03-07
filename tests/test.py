@@ -14,3 +14,9 @@ def test_home_endpoint(client):
     json_data = response.get_json()
     assert json_data["message"] == "basic ci/cd pipeline setup for project"
     assert json_data["status"] == "green"
+
+def test_basic():
+    assert True
+
+def test_addition():
+    assert 1 + 1 == 2
