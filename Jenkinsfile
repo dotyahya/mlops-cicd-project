@@ -36,9 +36,8 @@ pipeline {
         stage('Clean Python Environment') {
             steps {
                 bat '''
-                    set -e
-                    python3 -m pip cache purge || true
-                    python3 -m pip uninstall -y scikit-learn numpy scipy joblib || true
+                    pip cache purge || true
+                    pip uninstall -y scikit-learn numpy scipy joblib || true
                 '''
             }
         }
@@ -48,13 +47,12 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            set -e
-                            python3 -m pip install --upgrade pip
-                            python3 -m pip install --no-cache-dir -r requirements.txt
+                            pip install --upgrade pip
+                            pip install --no-cache-dir -r requirements.txt
                         '''
                     } catch (Exception e) {
                         echo "First attempt failed, retrying..."
-                        bat 'python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt'
+                        bat 'pip install --no-cache-dir --ignore-installed -r requirements.txt'
                     }
                 }
             }
@@ -64,7 +62,6 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        set -e
                         docker build -t $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG .
                         docker tag $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG $DOCKER_IMAGE_NAME:latest
                     '''
@@ -77,8 +74,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
                         bat '''
-                            set -e
-                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                            docker login -u "$DOCKER_USERNAME" --password-stdin
                             docker push $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
                             docker push $DOCKER_IMAGE_NAME:latest
                             docker logout
