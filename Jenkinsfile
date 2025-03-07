@@ -8,7 +8,6 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'dotyahya/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
-        PYTHONPATH = "${WORKSPACE}"
         PYTHONUNBUFFERED = "1"
     }
 
@@ -62,8 +61,7 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        docker build -t $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG .
-                        docker tag $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG $DOCKER_IMAGE_NAME:latest
+                        docker build -t docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG} .
                     '''
                 }
             }
@@ -74,9 +72,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
                         bat '''
-                            docker login -u "$DOCKER_USERNAME" --password-stdin
-                            docker push $DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
-                            docker push $DOCKER_IMAGE_NAME:latest
+                            docker login -u "${env.DOCKER_IMAGE_NAME}" --password-stdin
+                            docker push ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG}
                             docker logout
                         '''
                     }
