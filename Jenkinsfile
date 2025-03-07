@@ -8,7 +8,7 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'dotyahya/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
-        PYTHONUNBUFFERED = "1"
+        PYTHONUNBUFFERED = '1'
     }
 
     stages {
@@ -19,18 +19,18 @@ pipeline {
         }
 
         stage('Check Branch') {
-        steps {
-            script {
-                def branch = env.GIT_BRANCH ?: 'unknown'
-                echo "Current branch: ${branch}"
-                
-                if (branch != 'origin/master' && branch != 'master') {
-                    currentBuild.result = 'ABORTED'
-                    error("Not on master branch. Stopping deployment.")
+            steps {
+                script {
+                    def branch = env.GIT_BRANCH ?: 'unknown'
+                    echo "Current branch: ${branch}"
+
+                    if (branch != 'origin/master' && branch != 'master') {
+                        currentBuild.result = 'ABORTED'
+                        error('Not on master branch. Stopping deployment.')
+                    }
                 }
             }
         }
-    }
 
         stage('Clean Python Environment') {
             steps {
@@ -50,7 +50,7 @@ pipeline {
                             pip install --no-cache-dir -r requirements.txt
                         '''
                     } catch (Exception e) {
-                        echo "First attempt failed, retrying..."
+                        echo 'First attempt failed, retrying...'
                         bat 'pip install --no-cache-dir --ignore-installed -r requirements.txt'
                     }
                 }
@@ -61,6 +61,8 @@ pipeline {
             steps {
                 script {
                     bat '''
+                        echo "DOCKER_IMAGE_NAME: ${env.DOCKER_IMAGE_NAME}"
+                        echo "DOCKER_IMAGE_TAG: ${env.DOCKER_IMAGE_TAG}"
                         docker build -t ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG} .
                     '''
                 }
@@ -72,7 +74,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
                         bat '''
-                            docker login -u "${env.DOCKER_IMAGE_NAME}" --password-stdin
+                            echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
                             docker push ${env.DOCKER_IMAGE_NAME}:${env.DOCKER_IMAGE_TAG}
                             docker logout
                         '''
@@ -94,7 +96,7 @@ pipeline {
         failure {
             mail to: 'dev.yahyu@gmail.com',
                  subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                 body: "Pipeline failed! Check Jenkins logs for details."
+                 body: 'Pipeline failed! Check Jenkins logs for details.'
         }
     }
 }
