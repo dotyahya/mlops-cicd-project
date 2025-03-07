@@ -5,6 +5,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_IMAGE_NAME = 'osman3/mlops-ml-project'
         DOCKER_IMAGE_TAG = "${BUILD_NUMBER}"
+        PYTHONPATH = "${WORKSPACE}"
     }
     
     stages {
@@ -22,7 +23,9 @@ pipeline {
         
         stage('Run Tests') {
             steps {
-                bat 'python -m pytest tests/ --junitxml=test-results.xml'
+                bat 'echo Current directory: %CD%'
+                bat 'echo Python path: %PYTHONPATH%'
+                bat 'python -m pytest tests/ -v --junitxml=test-results.xml'
             }
             post {
                 always {
