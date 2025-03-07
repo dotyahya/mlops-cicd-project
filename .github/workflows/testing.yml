@@ -25,7 +25,14 @@ jobs:
       - name: Test with pytest
         run: |
           pytest -vs
+
+  trigger-jenkins:
+    needs: test
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'master' && github.event.action == 'closed')
+    steps:
       - name: Trigger Jenkins Pipeline
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         run: |
           curl -X POST ${{ secrets.JENKINS_WEBHOOK_URL }}
