@@ -93,12 +93,12 @@ pipeline {
             cleanWs()
         }
         success {
-            mail to: 'yahyanaeem35@gmail.com',
+            mail to: 'dev.yahyu@gmail.com',
                  subject: "Pipeline Success: ${currentBuild.fullDisplayName}",
                  body: "Pipeline completed successfully! Docker image pushed to DockerHub as ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} and ${DOCKER_IMAGE_NAME}:latest"
         }
         failure {
-            mail to: 'yahyanaeem35@gmail.com',
+            mail to: 'dev.yahyu@gmail.com',
                  subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
                  body: "Pipeline failed! Check Jenkins logs for details."
         }
